@@ -2,7 +2,9 @@ package org.home.prac.invest.book.mapper
 
 import org.home.prac.invest.book.models.Activity
 import org.home.prac.invest.book.models.ActivityType
+import org.home.prac.invest.book.models.Amount
 import org.home.prac.invest.book.util.getSplitsWithTrimming
+import org.home.prac.invest.book.util.toAmount
 import java.lang.Math.abs
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -21,7 +23,19 @@ class ActivityMapper {
         }
         val symbol = properties[3]
         val description = properties[4]
-//        val price
-        return null
+        val price: Amount? = toAmount(properties[5])
+        val fee: Amount? = toAmount(properties[7])
+        val amount: Amount = toAmount(properties[8])
+
+        return Activity(
+            date = date,
+            type = type,
+            description = description,
+            amount = amount,
+            symbol = symbol,
+            shares = shares,
+            price = price,
+            fee = fee
+        )
     }
 }

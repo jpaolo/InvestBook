@@ -38,7 +38,7 @@ fun main() {
                 e.printStackTrace()
             }
         }
-
+        println("activities: $activities")
     } else {
         println("No text found on the clipboard or an error occurred.")
     }

@@ -1,26 +1,26 @@
 package org.home.prac.invest.book.models
 
 import java.time.LocalDate
-import java.util.*
 
 data class Activity(val date: LocalDate,
                     val type: ActivityType,
                     val description: String,
-                    val amount: Currency,
+                    val amount: Amount,
                     val symbol: String?,
-                    val shares: Int,
-                    val price: Currency?,
-                    val fee: Currency?
+                    val shares: Int?,
+                    val price: Amount?,
+                    val fee: Amount?
 )
 
 enum class ActivityType(val sourceName: String) {
     BOUGHT("Bought"),
     SOLD("Sold"),
     DIVIDEND("Dividend"),
-    TRANSFER("Cash Movement");
+    TRANSFER("Cash Movement"),
+    UNDEFINED("Undefined");
 
     companion object {
         private val map = entries.associateBy(ActivityType::sourceName)
-        fun fromAllyText(allyActivityText: String) = map[allyActivityText]
+        fun fromAllyText(allyActivityText: String) = map[allyActivityText] ?: UNDEFINED
     }
 }
