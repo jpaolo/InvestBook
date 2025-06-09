@@ -2,6 +2,7 @@ package org.home.prac.invest.book.util
 
 import java.awt.Toolkit
 import java.awt.datatransfer.DataFlavor
+import java.awt.datatransfer.StringSelection
 import java.awt.datatransfer.UnsupportedFlavorException
 import java.io.IOException
 
@@ -20,4 +21,10 @@ fun readClipboardText(): String? {
         e.printStackTrace()
         null
     }
+}
+
+fun writeToClipboard(text: String) {
+    val stringSelection = StringSelection(text)
+    val clipboard = Toolkit.getDefaultToolkit().systemClipboard
+    clipboard.setContents(stringSelection, null)
 }

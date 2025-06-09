@@ -7,6 +7,7 @@ import org.home.prac.invest.book.util.getSplitsWithTrimming
 import org.home.prac.invest.book.util.readClipboardText
 import org.home.prac.invest.book.util.toInvestBookExecutionFromActivity
 import org.home.prac.invest.book.util.toInvestBookSummaryTrade
+import org.home.prac.invest.book.util.writeToClipboard
 import java.time.LocalDate
 import kotlin.time.TimeSource
 
@@ -49,6 +50,7 @@ fun main(args: Array<String>) {
             }
         } else if (args[0] == "1") {    // mode=1: from InvestBook current year tab to InvestBook summary activities
             var row = args[1].toInt() + trades.size - 1
+            // TODO: cover balance column in summary page as well
             activities.reversed().forEach {
                 when (it.type) {
                     ActivityType.BOUGHT, ActivityType.SOLD -> {
@@ -67,7 +69,10 @@ fun main(args: Array<String>) {
         }
         toClipboard.deleteCharAt(toClipboard.length - 1)
 
-        // TODO: to clipboard
+        println(toClipboard)
+        writeToClipboard(toClipboard.toString())
+
+        // TODO: print verification summary
     } else {
         println("No text found on the clipboard or an error occurred.")
     }

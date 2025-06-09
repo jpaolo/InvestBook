@@ -45,8 +45,8 @@ fun toInvestBookSummaryTrade(curRow: Int, curYear: Int): String {
 
     val rowText = StringBuilder()
     rowText.append("='executions $curYear'!$dateCol$curRow").append('\t')
-    rowText.append("=CONCATENATE(SUBSTITUTE('executions $curYear'!$opCol$curRow,\":\",CONCATENATE(\" \",'executions $curYear'!$shareCol$curRow),1),\" @ \",TEXT('executions $curYear'!$priceCol$curRow,\"\$0.00\"))")
-    rowText.append("='executions $curYear'!$amountCol$curRow").append('\t')
+    rowText.append("=CONCATENATE(SUBSTITUTE('executions $curYear'!$opCol$curRow,\":\",CONCATENATE(\" \",'executions $curYear'!$shareCol$curRow),1),\" @ \",TEXT('executions $curYear'!$priceCol$curRow,\"\$0.00\"))").append('\t')
+    rowText.append("='executions $curYear'!$amountCol$curRow")
 
     return rowText.toString()
 }
