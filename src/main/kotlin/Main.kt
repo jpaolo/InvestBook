@@ -6,12 +6,17 @@ import org.home.prac.invest.book.models.ActivityType
 import org.home.prac.invest.book.util.getSplitsWithTrimming
 import org.home.prac.invest.book.util.readClipboardText
 import org.home.prac.invest.book.util.toInvestBookExecutionFromActivity
+import org.home.prac.invest.book.util.toInvestBookSummaryActivity
+import kotlin.time.TimeSource
 
 /***
  * mode=0: from Ally Activities page to InvestBook current year tab
  * mode=1: from InvestBook current year tab to InvestBook summary activities
  */
 fun main(args: Array<String>) {
+    val timeSource = TimeSource.Monotonic
+    val startTime = timeSource.markNow()
+
     val clipboardContent = try {
         readClipboardText()
     } catch (e: Exception) {
@@ -32,21 +37,35 @@ fun main(args: Array<String>) {
         }
     }
     if (clipboardContent != null) {
+        val toClipboard = StringBuilder()
+        val trades = activities.filter { it.type == ActivityType.SOLD || it.type == ActivityType.BOUGHT }
+
         if (args[0] == "0") {   // mode=0: from Ally Activities page to InvestBook current year tab
-            val investBookExecutions = StringBuilder()
             var row = args[1].toInt()
-            activities.filter { it.type == ActivityType.SOLD || it.type == ActivityType.BOUGHT }.forEach {
-                investBookExecutions.append(toInvestBookExecutionFromActivity(it, row++))
-                investBookExecutions.append(10.toChar()) // ascii-10 = NL
+            trades.forEach {
+                toClipboard.append(toInvestBookExecutionFromActivity(it, row++))
+                toClipboard.append(10.toChar()) // ascii-10 = NL
             }
-            investBookExecutions.deleteCharAt(investBookExecutions.length - 1)
-            // TODO: to clipboard
-            println(investBookExecutions)
         } else if (args[0] == "1") {    // mode=1: from InvestBook current year tab to InvestBook summary activities
-
+            activities.reversed().forEach {
+                when (it.type) {
+                    ActivityType.BOUGHT, ActivityType.SOLD -> {
+                        toClipboard.append(toInvestBookSummaryActivity())
+                        toClipboard.append(10.toChar())
+                    } else -> {
+                        // TODO: handle other types
+                        toClipboard.append("// TODO: handle other types")
+                        toClipboard.append(10.toChar())
+                    }
+                }
+            }
         }
+        toClipboard.deleteCharAt(toClipboard.length - 1)
 
+        // TODO: to clipboard
     } else {
         println("No text found on the clipboard or an error occurred.")
     }
+
+    println("Duration: ${timeSource.markNow() - startTime}")
 }

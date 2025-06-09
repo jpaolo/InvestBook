@@ -36,3 +36,8 @@ fun toInvestBookExecutionFromActivity(activity: Activity, curRow: Int): String {
 
     return rowText.toString()
 }
+
+fun toInvestBookSummaryActivity(): String {
+
+    return ""
+}
