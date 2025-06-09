@@ -6,7 +6,8 @@ import org.home.prac.invest.book.models.ActivityType
 import org.home.prac.invest.book.util.getSplitsWithTrimming
 import org.home.prac.invest.book.util.readClipboardText
 import org.home.prac.invest.book.util.toInvestBookExecutionFromActivity
-import org.home.prac.invest.book.util.toInvestBookSummaryActivity
+import org.home.prac.invest.book.util.toInvestBookSummaryTrade
+import java.time.LocalDate
 import kotlin.time.TimeSource
 
 /***
@@ -47,10 +48,14 @@ fun main(args: Array<String>) {
                 toClipboard.append(10.toChar()) // ascii-10 = NL
             }
         } else if (args[0] == "1") {    // mode=1: from InvestBook current year tab to InvestBook summary activities
+            var row = args[1].toInt() + trades.size - 1
             activities.reversed().forEach {
                 when (it.type) {
                     ActivityType.BOUGHT, ActivityType.SOLD -> {
-                        toClipboard.append(toInvestBookSummaryActivity())
+                        toClipboard.append(toInvestBookSummaryTrade(
+                            row--,
+                            LocalDate.now().year)
+                        )
                         toClipboard.append(10.toChar())
                     } else -> {
                         // TODO: handle other types

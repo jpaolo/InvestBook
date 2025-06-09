@@ -5,14 +5,18 @@ import org.home.prac.invest.book.models.ActivityType
 import java.lang.IllegalStateException
 import java.time.format.DateTimeFormatter
 
+val dateCol = "A"
+val shareCol = "B"
+val opCol = "C"
+val priceCol = "D"
+val feeCol = "E"
+val amountCol = "F"
+
 fun getSplitsWithTrimming(input: String, separator: Char): List<String> {
     return input.split(separator).map { it.trim() }
 }
 
 fun toInvestBookExecutionFromActivity(activity: Activity, curRow: Int): String {
-    val shareCol = "B"
-    val priceCol = "D"
-    val feeCol = "E"
 
     val rowText = StringBuilder()
     val formatter = DateTimeFormatter.ofPattern("MM/dd/yyyy")
@@ -37,7 +41,12 @@ fun toInvestBookExecutionFromActivity(activity: Activity, curRow: Int): String {
     return rowText.toString()
 }
 
-fun toInvestBookSummaryActivity(): String {
+fun toInvestBookSummaryTrade(curRow: Int, curYear: Int): String {
 
-    return ""
+    val rowText = StringBuilder()
+    rowText.append("='executions $curYear'!$dateCol$curRow").append('\t')
+    rowText.append("=CONCATENATE(SUBSTITUTE('executions $curYear'!$opCol$curRow,\":\",CONCATENATE(\" \",'executions $curYear'!$shareCol$curRow),1),\" @ \",TEXT('executions $curYear'!$priceCol$curRow,\"\$0.00\"))")
+    rowText.append("='executions $curYear'!$amountCol$curRow").append('\t')
+
+    return rowText.toString()
 }
