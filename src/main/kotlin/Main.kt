@@ -5,8 +5,6 @@ import org.home.prac.invest.book.models.Activity
 import org.home.prac.invest.book.models.ActivityType
 import org.home.prac.invest.book.util.getSplitsWithTrimming
 import org.home.prac.invest.book.util.readClipboardText
-import org.home.prac.invest.book.util.toInvestBookExecutionFromActivity
-import org.home.prac.invest.book.util.toInvestBookSummaryTrade
 import org.home.prac.invest.book.util.writeToClipboard
 import java.time.LocalDate
 import kotlin.time.TimeSource
@@ -40,12 +38,13 @@ fun main(args: Array<String>) {
     }
     if (clipboardContent != null) {
         val toClipboard = StringBuilder()
+        val convertor = FiToBookConvertor()
         val trades = activities.filter { it.type == ActivityType.SOLD || it.type == ActivityType.BOUGHT }
 
         if (args[0] == "0") {   // mode=0: from Ally Activities page to InvestBook current year tab
             var row = args[1].toInt()
             trades.forEach {
-                toClipboard.append(toInvestBookExecutionFromActivity(it, row++))
+                toClipboard.append(convertor.toInvestBookExecutionFromActivity(it, row++))
                 toClipboard.append(10.toChar()) // ascii-10 = NL
             }
         } else if (args[0] == "1") {    // mode=1: from InvestBook current year tab to InvestBook summary activities
@@ -54,7 +53,7 @@ fun main(args: Array<String>) {
             activities.reversed().forEach {
                 when (it.type) {
                     ActivityType.BOUGHT, ActivityType.SOLD -> {
-                        toClipboard.append(toInvestBookSummaryTrade(
+                        toClipboard.append(convertor.toInvestBookSummaryTrade(
                             row--,
                             LocalDate.now().year)
                         )
