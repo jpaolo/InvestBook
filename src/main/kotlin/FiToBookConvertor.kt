@@ -2,17 +2,23 @@ package org.home.prac.invest.book
 
 import org.home.prac.invest.book.models.Activity
 import org.home.prac.invest.book.models.ActivityType
+import org.home.prac.invest.book.util.writeToClipboard
+import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
 class FiToBookConvertor {
 
-    val dateCol = "A"
-    val shareCol = "B"
-    val opCol = "C"
-    val priceCol = "D"
-    val feeCol = "E"
-    val amountCol = "F"
+    private val dateCol = "A"
+    private val shareCol = "B"
+    private val opCol = "C"
+    private val priceCol = "D"
+    private val feeCol = "E"
+    private val amountCol = "F"
 
+    /**
+     * Converts activity to InvestBook execution format
+     * Note: This method appears to be used but its implementation needs to be provided
+     */
     fun toInvestBookExecutionFromActivity(activity: Activity, curRow: Int): String {
 
         val rowText = StringBuilder()
@@ -38,6 +44,10 @@ class FiToBookConvertor {
         return rowText.toString()
     }
 
+    /**
+     * Converts to InvestBook summary trade format
+     * Note: This method appears to be used but its implementation needs to be provided
+     */
     fun toInvestBookSummaryTrade(curRow: Int, curYear: Int): String {
 
         val rowText = StringBuilder()
@@ -46,6 +56,64 @@ class FiToBookConvertor {
         rowText.append("='executions $curYear'!$amountCol$curRow")
 
         return rowText.toString()
+    }
+
+    /**
+     * Processes activities and converts them based on the specified mode
+     * @param activities List of activities to process
+     * @param mode Processing mode (0 or 1)
+     * @param startingRow Starting row number for processing
+     */
+    fun processActivities(activities: List<Activity>, mode: String, startingRow: Int) {
+        val toClipboard = StringBuilder()
+        val trades = activities.filter { it.type == ActivityType.SOLD || it.type == ActivityType.BOUGHT }
+
+        when (mode) {
+            "0" -> processMode0(trades, startingRow, toClipboard)
+            "1" -> processMode1(activities, startingRow, trades.size, toClipboard)
+        }
+
+        // Remove the last newline character
+        if (toClipboard.isNotEmpty()) {
+            toClipboard.deleteCharAt(toClipboard.length - 1)
+        }
+
+        println(toClipboard)
+        writeToClipboard(toClipboard.toString())
+
+        // TODO: print verification summary
+    }
+
+    /**
+     * Mode 0: from Ally Activities page to InvestBook current year tab
+     */
+    private fun processMode0(trades: List<Activity>, startingRow: Int, toClipboard: StringBuilder) {
+        var row = startingRow
+        trades.forEach { activity ->
+            toClipboard.append(toInvestBookExecutionFromActivity(activity, row++))
+            toClipboard.append(10.toChar()) // ascii-10 = NL
+        }
+    }
+
+    /**
+     * Mode 1: from InvestBook current year tab to InvestBook summary activities
+     */
+    private fun processMode1(activities: List<Activity>, startingRow: Int, tradesSize: Int, toClipboard: StringBuilder) {
+        var row = startingRow + tradesSize - 1
+        // TODO: cover balance column in summary page as well
+        activities.reversed().forEach { activity ->
+            when (activity.type) {
+                ActivityType.BOUGHT, ActivityType.SOLD -> {
+                    toClipboard.append(toInvestBookSummaryTrade(row--, LocalDate.now().year))
+                    toClipboard.append(10.toChar())
+                }
+                else -> {
+                    // TODO: handle other types
+                    toClipboard.append("// TODO: handle other types")
+                    toClipboard.append(10.toChar())
+                }
+            }
+        }
     }
 
 }
