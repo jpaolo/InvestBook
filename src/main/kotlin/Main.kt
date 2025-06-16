@@ -36,7 +36,22 @@ fun main(args: Array<String>) {
 
     if (clipboardContent != null) {
         val convertor = FiToBookConvertor()
-        convertor.processActivities(activities, args[0], args[1].toInt())
+        var summRow: Int? = null
+        var summAmountCol: String? = null
+        var summBalCol: String? = null
+        if (args.size == 5) {
+            summRow = args[2].toInt()
+            summAmountCol = args[3]
+            summBalCol = args[4]
+        }
+        convertor.processActivities(
+            activities = activities,
+            mode = args[0],
+            startingRow = args[1].toInt(),
+            summRow = summRow,
+            summAmountCol = summAmountCol,
+            summBalCol = summBalCol
+        )
     } else {
         println("No text found on the clipboard or an error occurred.")
     }

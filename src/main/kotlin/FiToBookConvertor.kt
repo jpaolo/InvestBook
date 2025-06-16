@@ -52,7 +52,7 @@ class FiToBookConvertor {
 
         val rowText = StringBuilder()
         rowText.append("='executions $curYear'!$dateCol$curRow").append('\t')
-        rowText.append("=CONCATENATE(SUBSTITUTE('executions $curYear'!$opCol$curRow,\":\",CONCATENATE(\" \",'executions $curYear'!$shareCol$curRow),1),\" @ \",TEXT('executions $curYear'!$priceCol$curRow,\"\$0.00\"))").append('\t')
+        rowText.append("=CONCATENATE(SUBSTITUTE('executions $curYear'!$opCol$curRow,\":\",CONCATENATE(\" \",'executions $curYear'!$shareCol$curRow),1),\" @ \",TEXT('executions $curYear'!$priceCol$curRow,\"$0.00\"))").append('\t')
         rowText.append("='executions $curYear'!$amountCol$curRow")
 
         return rowText.toString()
@@ -64,13 +64,28 @@ class FiToBookConvertor {
      * @param mode Processing mode (0 or 1)
      * @param startingRow Starting row number for processing
      */
-    fun processActivities(activities: List<Activity>, mode: String, startingRow: Int) {
+    fun processActivities(
+        activities: List<Activity>,
+        mode: String,
+        startingRow: Int,
+        summRow: Int?,
+        summAmountCol: String?,
+        summBalCol: String?
+    ) {
         val toClipboard = StringBuilder()
         val trades = activities.filter { it.type == ActivityType.SOLD || it.type == ActivityType.BOUGHT }
 
         when (mode) {
-            "0" -> processMode0(trades, startingRow, toClipboard)
-            "1" -> processMode1(activities, startingRow, trades.size, toClipboard)
+            "0" -> processForExeTab(trades, startingRow, toClipboard)
+            "1" -> processForSummary(
+                activities = activities,
+                startingRow = startingRow,
+                tradesSize = trades.size,
+                toClipboard = toClipboard,
+                summTabStartingRow = summRow,
+                summTabAmountCol = summAmountCol,
+                summTabBalCol = summBalCol
+            )
         }
 
         // Remove the last newline character
@@ -87,7 +102,7 @@ class FiToBookConvertor {
     /**
      * Mode 0: from Ally Activities page to InvestBook current year tab
      */
-    private fun processMode0(trades: List<Activity>, startingRow: Int, toClipboard: StringBuilder) {
+    private fun processForExeTab(trades: List<Activity>, startingRow: Int, toClipboard: StringBuilder) {
         var row = startingRow
         trades.forEach { activity ->
             toClipboard.append(toInvestBookExecutionFromActivity(activity, row++))
@@ -98,21 +113,31 @@ class FiToBookConvertor {
     /**
      * Mode 1: from InvestBook current year tab to InvestBook summary activities
      */
-    private fun processMode1(activities: List<Activity>, startingRow: Int, tradesSize: Int, toClipboard: StringBuilder) {
+    private fun processForSummary(
+        activities: List<Activity>,
+        startingRow: Int,
+        tradesSize: Int,
+        toClipboard: StringBuilder,
+        summTabStartingRow: Int?,
+        summTabAmountCol: String?,
+        summTabBalCol: String?
+    ) {
         var row = startingRow + tradesSize - 1
-        // TODO: cover balance column in summary page as well
+        var summRow = summTabStartingRow
         activities.reversed().forEach { activity ->
             when (activity.type) {
                 ActivityType.BOUGHT, ActivityType.SOLD -> {
                     toClipboard.append(toInvestBookSummaryTrade(row--, LocalDate.now().year))
-                    toClipboard.append(10.toChar())
                 }
                 else -> {
                     // TODO: handle other types
                     toClipboard.append("// TODO: handle other types")
-                    toClipboard.append(10.toChar())
                 }
             }
+            if (summTabStartingRow != null && summTabAmountCol != null && summTabBalCol != null) {
+                toClipboard.append('\t').append("=$summTabBalCol$summRow+$summTabAmountCol${++summRow}")
+            }
+            toClipboard.append(10.toChar())
         }
     }
 
