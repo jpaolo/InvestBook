@@ -16,49 +16,6 @@ class FiToBookConvertor {
     private val amountCol = "F"
 
     /**
-     * Converts activity to InvestBook execution format
-     * Note: This method appears to be used but its implementation needs to be provided
-     */
-    fun toInvestBookExecutionFromActivity(activity: Activity, curRow: Int): String {
-
-        val rowText = StringBuilder()
-        val formatter = DateTimeFormatter.ofPattern("MM/dd/yyyy")
-        rowText.append(activity.date.format(formatter)).append('\t')
-        rowText.append(activity.shares).append('\t')
-        rowText.append("${activity.type.sourceName}: ${activity.symbol}").append('\t')
-        rowText.append(activity.price!!.formattedAmount).append('\t')
-        rowText.append(activity.fee!!.formattedAmount).append('\t')
-
-        when (activity.type) {
-            ActivityType.BOUGHT -> {
-                rowText.append("=ROUND(-$shareCol$curRow*$priceCol$curRow-$feeCol$curRow,2)")
-            }
-            ActivityType.SOLD -> {
-                rowText.append("=ROUND($shareCol$curRow*$priceCol$curRow-$feeCol$curRow,2)")
-            }
-            else -> {
-                throw IllegalStateException("${activity.type}")
-            }
-        }
-
-        return rowText.toString()
-    }
-
-    /**
-     * Converts to InvestBook summary trade format
-     * Note: This method appears to be used but its implementation needs to be provided
-     */
-    fun toInvestBookSummaryTrade(curRow: Int, curYear: Int): String {
-
-        val rowText = StringBuilder()
-        rowText.append("='executions $curYear'!$dateCol$curRow").append('\t')
-        rowText.append("=CONCATENATE(SUBSTITUTE('executions $curYear'!$opCol$curRow,\":\",CONCATENATE(\" \",'executions $curYear'!$shareCol$curRow),1),\" @ \",TEXT('executions $curYear'!$priceCol$curRow,\"$0.00\"))").append('\t')
-        rowText.append("='executions $curYear'!$amountCol$curRow")
-
-        return rowText.toString()
-    }
-
-    /**
      * Processes activities and converts them based on the specified mode
      * @param activities List of activities to process
      * @param mode Processing mode (0 or 1)
@@ -72,13 +29,15 @@ class FiToBookConvertor {
         summAmountCol: String?,
         summBalCol: String?
     ) {
+        val dateFormatter = DateTimeFormatter.ofPattern("MM/dd/yyyy")
         val toClipboard = StringBuilder()
         val trades = activities.filter { it.type == ActivityType.SOLD || it.type == ActivityType.BOUGHT }
 
         when (mode) {
-            "0" -> processForExeTab(trades, startingRow, toClipboard)
+            "0" -> processForExeTab(trades, dateFormatter, startingRow, toClipboard)
             "1" -> processForSummary(
                 activities = activities,
+                dateFormat = dateFormatter,
                 startingRow = startingRow,
                 tradesSize = trades.size,
                 toClipboard = toClipboard,
@@ -100,12 +59,62 @@ class FiToBookConvertor {
     }
 
     /**
+     * Converts activity to InvestBook execution format
+     * Note: This method appears to be used but its implementation needs to be provided
+     */
+    private fun toInvestBookExecutionFromActivity(activity: Activity, dateFormat: DateTimeFormatter, curRow: Int): String {
+
+        val rowText = StringBuilder()
+        rowText.append(activity.date.format(dateFormat)).append('\t')
+        rowText.append(activity.shares).append('\t')
+        rowText.append("${activity.type.sourceName}: ${activity.symbol}").append('\t')
+        rowText.append(activity.price!!.formattedAmount).append('\t')
+        rowText.append(activity.fee!!.formattedAmount).append('\t')
+
+        when (activity.type) {
+            ActivityType.BOUGHT -> {
+                rowText.append("=ROUND(-$shareCol$curRow*$priceCol$curRow-$feeCol$curRow,2)")
+            }
+            ActivityType.SOLD -> {
+                rowText.append("=ROUND($shareCol$curRow*$priceCol$curRow-$feeCol$curRow,2)")
+            }
+            else -> {
+                throw IllegalStateException("${activity.type}")
+            }
+        }
+
+        return rowText.toString()
+    }
+
+    /**
+     * Convert to InvestBook summary for trades
+     */
+    private fun toInvestBookSummaryTrade(curRow: Int, curYear: Int): String {
+
+        val rowText = StringBuilder()
+        rowText.append("='executions $curYear'!$dateCol$curRow").append('\t')
+        rowText.append("=CONCATENATE(SUBSTITUTE('executions $curYear'!$opCol$curRow,\":\",CONCATENATE(\" \",'executions $curYear'!$shareCol$curRow),1),\" @ \",TEXT('executions $curYear'!$priceCol$curRow,\"$0.00\"))").append('\t')
+        rowText.append("='executions $curYear'!$amountCol$curRow")
+
+        return rowText.toString()
+    }
+
+    private fun toInvestBookSummaryNonTradeActivity(activity: Activity, dateFormat: DateTimeFormatter): String {
+        val rowText = StringBuilder()
+        rowText.append(activity.date.format(dateFormat)).append('\t')
+        rowText.append("${activity.type.sourceName}: ${activity.description}").append('\t')
+        rowText.append(activity.amount.formattedAmount)
+
+        return rowText.toString()
+    }
+
+    /**
      * Mode 0: from Ally Activities page to InvestBook current year tab
      */
-    private fun processForExeTab(trades: List<Activity>, startingRow: Int, toClipboard: StringBuilder) {
+    private fun processForExeTab(trades: List<Activity>, dateFormat: DateTimeFormatter, startingRow: Int, toClipboard: StringBuilder) {
         var row = startingRow
         trades.forEach { activity ->
-            toClipboard.append(toInvestBookExecutionFromActivity(activity, row++))
+            toClipboard.append(toInvestBookExecutionFromActivity(activity, dateFormat,row++))
             toClipboard.append(10.toChar()) // ascii-10 = NL
         }
     }
@@ -115,6 +124,7 @@ class FiToBookConvertor {
      */
     private fun processForSummary(
         activities: List<Activity>,
+        dateFormat: DateTimeFormatter,
         startingRow: Int,
         tradesSize: Int,
         toClipboard: StringBuilder,
@@ -130,8 +140,7 @@ class FiToBookConvertor {
                     toClipboard.append(toInvestBookSummaryTrade(row--, LocalDate.now().year))
                 }
                 else -> {
-                    // TODO: handle other types
-                    toClipboard.append("// TODO: handle other types")
+                    toClipboard.append(toInvestBookSummaryNonTradeActivity(activity, dateFormat))
                 }
             }
             if (summTabStartingRow != null && summTabAmountCol != null && summTabBalCol != null) {
