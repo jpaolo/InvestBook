@@ -2,6 +2,7 @@ package org.home.prac.invest.book
 
 import org.home.prac.invest.book.models.Activity
 import org.home.prac.invest.book.models.ActivityType
+import org.home.prac.invest.book.util.toAmount
 import org.home.prac.invest.book.util.writeToClipboard
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -31,7 +32,7 @@ class FiToBookConvertor {
     ) {
         val dateFormatter = DateTimeFormatter.ofPattern("MM/dd/yyyy")
         val toClipboard = StringBuilder()
-        val trades = activities.filter { it.type == ActivityType.SOLD || it.type == ActivityType.BOUGHT }
+        val trades = activities.filter { it.type == ActivityType.BOUGHT || it.type == ActivityType.SOLD }
 
         when (mode) {
             "0" -> processForExeTab(trades, dateFormatter, startingRow, toClipboard)
@@ -52,15 +53,33 @@ class FiToBookConvertor {
             toClipboard.deleteCharAt(toClipboard.length - 1)
         }
 
+        println("New clipboard:")
         println(toClipboard)
         writeToClipboard(toClipboard.toString())
 
-        // TODO: print verification summary
+        findAndPrintDiscrepancy(trades, dateFormatter)
+    }
+
+    private fun findAndPrintDiscrepancy(trades: List<Activity>, dateFormat: DateTimeFormatter) {
+        var discrepancyHeaderAlreadyPrinted = false
+        trades.forEach {
+            if (it.type == ActivityType.BOUGHT || it.type == ActivityType.SOLD) {
+                val calculatedAmount = it.price!!.value * it.shares!!.toBigDecimal() - it.fee!!.value
+                if (it.amount.value != calculatedAmount) {
+                    if (!discrepancyHeaderAlreadyPrinted) {
+                        println("Discrepancies:")
+                    }
+                    discrepancyHeaderAlreadyPrinted = true
+                    println("${it.date.format(dateFormat)}\t" +
+                            "${it.type.sourceName}: ${it.shares} ${it.symbol}\t" +
+                            "actual amount = [${it.amount.formattedAmount}]; calculated amount = [${toAmount(calculatedAmount)}]")
+                }
+            }
+        }
     }
 
     /**
-     * Converts activity to InvestBook execution format
-     * Note: This method appears to be used but its implementation needs to be provided
+     * Converts Ally activity to InvestBook execution tab
      */
     private fun toInvestBookExecutionFromActivity(activity: Activity, dateFormat: DateTimeFormatter, curRow: Int): String {
 
@@ -113,8 +132,8 @@ class FiToBookConvertor {
      */
     private fun processForExeTab(trades: List<Activity>, dateFormat: DateTimeFormatter, startingRow: Int, toClipboard: StringBuilder) {
         var row = startingRow
-        trades.forEach { activity ->
-            toClipboard.append(toInvestBookExecutionFromActivity(activity, dateFormat,row++))
+        trades.forEach {
+            toClipboard.append(toInvestBookExecutionFromActivity(it, dateFormat,row++))
             toClipboard.append(10.toChar()) // ascii-10 = NL
         }
     }
@@ -134,13 +153,13 @@ class FiToBookConvertor {
     ) {
         var row = startingRow + tradesSize - 1
         var summRow = summTabStartingRow
-        activities.reversed().forEach { activity ->
-            when (activity.type) {
+        activities.reversed().forEach {
+            when (it.type) {
                 ActivityType.BOUGHT, ActivityType.SOLD -> {
                     toClipboard.append(toInvestBookSummaryTrade(row--, LocalDate.now().year))
                 }
                 else -> {
-                    toClipboard.append(toInvestBookSummaryNonTradeActivity(activity, dateFormat))
+                    toClipboard.append(toInvestBookSummaryNonTradeActivity(it, dateFormat))
                 }
             }
             if (summTabStartingRow != null && summTabAmountCol != null && summTabBalCol != null) {
