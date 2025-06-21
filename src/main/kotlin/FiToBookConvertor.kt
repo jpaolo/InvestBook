@@ -72,7 +72,7 @@ class FiToBookConvertor {
                     }
                     discrepancyHeaderAlreadyPrinted = true
                     val suggestedPrice =
-                        ((it.amount.value + it.fee.value).setScale(5, RoundingMode.HALF_UP) / it.shares.toBigDecimal()).setScale(5, RoundingMode.HALF_UP)
+                        (it.amount.value + it.fee.value).setScale(6, RoundingMode.HALF_UP) / it.shares.toBigDecimal()
                     println("${it.date.format(dateFormat)}\t" +
                             "${it.type.sourceName}: ${it.shares} ${it.symbol}\t" +
                             "actual amount = [${it.amount.formattedAmount}]; calculated amount = [${toAmount(calculatedAmount)}]; " +
