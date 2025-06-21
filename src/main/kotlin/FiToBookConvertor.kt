@@ -65,7 +65,7 @@ class FiToBookConvertor {
         trades.forEach {
             if (it.type == ActivityType.BOUGHT || it.type == ActivityType.SOLD) {
                 val calculatedAmount = it.price!!.value * it.shares!!.toBigDecimal() - it.fee!!.value
-                if (it.amount.value != calculatedAmount) {
+                if (it.amount.value.compareTo(calculatedAmount) != 0) {
                     if (!discrepancyHeaderAlreadyPrinted) {
                         println("Discrepancies:")
                     }
