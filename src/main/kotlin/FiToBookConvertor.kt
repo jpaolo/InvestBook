@@ -4,6 +4,7 @@ import org.home.prac.invest.book.models.Activity
 import org.home.prac.invest.book.models.ActivityType
 import org.home.prac.invest.book.util.toAmount
 import org.home.prac.invest.book.util.writeToClipboard
+import java.math.RoundingMode
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
@@ -70,9 +71,12 @@ class FiToBookConvertor {
                         println("Discrepancies:")
                     }
                     discrepancyHeaderAlreadyPrinted = true
+                    val suggestedPrice =
+                        ((it.amount.value + it.fee.value).setScale(5, RoundingMode.HALF_UP) / it.shares.toBigDecimal()).setScale(5, RoundingMode.HALF_UP)
                     println("${it.date.format(dateFormat)}\t" +
                             "${it.type.sourceName}: ${it.shares} ${it.symbol}\t" +
-                            "actual amount = [${it.amount.formattedAmount}]; calculated amount = [${toAmount(calculatedAmount)}]")
+                            "actual amount = [${it.amount.formattedAmount}]; calculated amount = [${toAmount(calculatedAmount)}]; " +
+                            "suggested share price = [$suggestedPrice]")
                 }
             }
         }
