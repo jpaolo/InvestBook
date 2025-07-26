@@ -22,7 +22,10 @@ fun toAmount(amountStr: String): Amount {
     throw NumberFormatException("Value for Amount [$amountStr] is not comprehensible")
 }
 
-fun toAmount(value: BigDecimal): String {
+fun toAmount(value: BigDecimal, precision: Int? = null): String {
     val formatter = NumberFormat.getCurrencyInstance(Locale.US)
+    if (precision != null) {
+        formatter.setMaximumFractionDigits(precision)
+    }
     return formatter.format(value)
 }

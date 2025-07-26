@@ -21,6 +21,7 @@ class FiToBookConvertor {
         const val NEWLINE = '\n'
         const val TAB = '\t'
         val TRADE_TYPES = setOf(ActivityType.BOUGHT, ActivityType.SOLD)
+        const val HIGH_DECIMAL_PRECISION = 6
     }
 
     private val dateFormatter = DateTimeFormatter.ofPattern("MM/dd/yyyy")
@@ -103,8 +104,8 @@ class FiToBookConvertor {
         }
 
         val priceToUse = getDiscrepantCalculatedAmount(activity)?.let {
-            calculateSuggestedPrice(activity)
-        } ?: activity.price
+            toAmount(calculateSuggestedPrice(activity), HIGH_DECIMAL_PRECISION)
+        } ?: activity.price!!.formattedAmount
 
         return buildString {
             append(activity.date.format(dateFormatter)).append(TAB)
@@ -155,7 +156,7 @@ class FiToBookConvertor {
             ActivityType.SOLD -> trade.amount.value + trade.fee!!.value
             else -> throw IllegalArgumentException("Unsupported trade type: ${trade.type}")
         }
-        return adjustedAmount.setScale(6, RoundingMode.HALF_UP) / trade.shares!!.toBigDecimal()
+        return adjustedAmount.setScale(HIGH_DECIMAL_PRECISION, RoundingMode.HALF_UP) / trade.shares!!.toBigDecimal()
     }
 
     private fun printDiscrepancies(trades: List<Activity>) {
