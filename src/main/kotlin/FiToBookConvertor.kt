@@ -96,18 +96,21 @@ class FiToBookConvertor {
      * Converts Ally activity to InvestBook execution tab
      */
     private fun toInvestBookExecutionFromActivity(activity: Activity, row: Int): String {
-        val correctedPrice = getCorrectedPrice(activity)
         val amountFormula = when (activity.type) {
             ActivityType.BOUGHT -> "=ROUND(-$SHARE_COL$row*$PRICE_COL$row-$FEE_COL$row,2)"
             ActivityType.SOLD -> "=ROUND($SHARE_COL$row*$PRICE_COL$row-$FEE_COL$row,2)"
             else -> throw IllegalStateException("Unsupported trade type: ${activity.type}")
         }
 
+        val priceToUse = getDiscrepantCalculatedAmount(activity)?.let {
+            calculateSuggestedPrice(activity)
+        } ?: activity.price
+
         return buildString {
             append(activity.date.format(dateFormatter)).append(TAB)
             append(activity.shares).append(TAB)
             append("${activity.type.sourceName}: ${activity.symbol}").append(TAB)
-            append(toAmount(correctedPrice)).append(TAB)
+            append(priceToUse).append(TAB)
             append(activity.fee!!.formattedAmount).append(TAB)
             append(amountFormula)
         }
@@ -128,12 +131,12 @@ class FiToBookConvertor {
         append(activity.amount.formattedAmount)
     }
 
-    private fun getCorrectedPrice(trade: Activity): BigDecimal {
+    private fun getDiscrepantCalculatedAmount(trade: Activity): BigDecimal? {
         val calculatedAmount = calculateExpectedAmount(trade)
         return if (trade.amount.value.compareTo(calculatedAmount) != 0) {
-            calculateSuggestedPrice(trade)
+            calculatedAmount
         } else {
-            trade.price!!.value
+            null
         }
     }
 
@@ -157,8 +160,8 @@ class FiToBookConvertor {
 
     private fun printDiscrepancies(trades: List<Activity>) {
         val discrepancies = trades.mapNotNull { trade ->
-            val calculatedAmount = calculateExpectedAmount(trade)
-            if (trade.amount.value.compareTo(calculatedAmount) != 0) {
+            val calculatedAmount = getDiscrepantCalculatedAmount(trade)
+            if (calculatedAmount != null) {
                 val suggestedPrice = calculateSuggestedPrice(trade)
                 "${trade.date.format(dateFormatter)}$TAB" +
                         "${trade.type.sourceName}: ${trade.shares} ${trade.symbol}$TAB" +
