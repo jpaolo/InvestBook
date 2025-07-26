@@ -4,6 +4,7 @@ import org.home.prac.invest.book.models.Activity
 import org.home.prac.invest.book.models.ActivityType
 import org.home.prac.invest.book.util.toAmount
 import org.home.prac.invest.book.util.writeToClipboard
+import java.math.BigDecimal
 import java.math.RoundingMode
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -62,24 +63,45 @@ class FiToBookConvertor {
     }
 
     private fun findAndPrintDiscrepancy(trades: List<Activity>, dateFormat: DateTimeFormatter) {
-        var discrepancyHeaderAlreadyPrinted = false
-        trades.forEach {
-            if (it.type == ActivityType.BOUGHT || it.type == ActivityType.SOLD) {
-                val calculatedAmount = it.price!!.value * it.shares!!.toBigDecimal() - it.fee!!.value
-                if (it.amount.value.compareTo(calculatedAmount) != 0) {
-                    if (!discrepancyHeaderAlreadyPrinted) {
-                        println("Discrepancies:")
-                    }
-                    discrepancyHeaderAlreadyPrinted = true
-                    val suggestedPrice =
-                        (it.amount.value + it.fee.value).setScale(6, RoundingMode.HALF_UP) / it.shares.toBigDecimal()
-                    println("${it.date.format(dateFormat)}\t" +
-                            "${it.type.sourceName}: ${it.shares} ${it.symbol}\t" +
-                            "actual amount = [${it.amount.formattedAmount}]; calculated amount = [${toAmount(calculatedAmount)}]; " +
-                            "suggested share price = [$suggestedPrice]")
-                }
-            }
+        val discrepancies = trades
+            .filter { it.type in setOf(ActivityType.BOUGHT, ActivityType.SOLD) }
+            .mapNotNull { trade -> createDiscrepancyReport(trade, dateFormat) }
+
+        if (discrepancies.isNotEmpty()) {
+            println("Discrepancies:")
+            discrepancies.forEach(::println)
         }
+    }
+
+    private fun createDiscrepancyReport(trade: Activity, dateFormat: DateTimeFormatter): String? {
+        val calculatedAmount = calculateExpectedAmount(trade)
+
+        return if (trade.amount.value.compareTo(calculatedAmount) != 0) {
+            val suggestedPrice = calculateSuggestedPrice(trade)
+            "${trade.date.format(dateFormat)}\t" +
+                    "${trade.type.sourceName}: ${trade.shares} ${trade.symbol}\t" +
+                    "actual amount = [${trade.amount.formattedAmount}]; calculated amount = [${toAmount(calculatedAmount)}]; " +
+                    "suggested share price = [$suggestedPrice]"
+        } else null
+    }
+
+    private fun calculateExpectedAmount(trade: Activity): BigDecimal {
+        val baseAmount = trade.price!!.value * trade.shares!!.toBigDecimal()
+        return when (trade.type) {
+            ActivityType.BOUGHT -> baseAmount + trade.fee!!.value
+            ActivityType.SOLD -> baseAmount - trade.fee!!.value
+            else -> throw IllegalArgumentException("Unsupported trade type: ${trade.type}")
+        }
+    }
+
+    private fun calculateSuggestedPrice(trade: Activity): BigDecimal {
+        val adjustedAmount = when (trade.type) {
+            ActivityType.BOUGHT -> trade.amount.value - trade.fee!!.value
+            ActivityType.SOLD -> trade.amount.value + trade.fee!!.value
+            else -> throw IllegalArgumentException("Unsupported trade type: ${trade.type}")
+        }
+
+        return (adjustedAmount.setScale(6, RoundingMode.HALF_UP) / trade.shares!!.toBigDecimal())
     }
 
     /**
