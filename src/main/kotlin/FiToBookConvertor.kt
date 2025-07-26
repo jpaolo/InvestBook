@@ -34,7 +34,7 @@ class FiToBookConvertor {
     ) {
         val dateFormatter = DateTimeFormatter.ofPattern("MM/dd/yyyy")
         val toClipboard = StringBuilder()
-        val trades = activities.filter { it.type == ActivityType.BOUGHT || it.type == ActivityType.SOLD }
+        val trades = activities.filter { it.type in setOf(ActivityType.BOUGHT, ActivityType.SOLD) }
 
         when (mode) {
             "0" -> processForExeTab(trades, dateFormatter, startingRow, toClipboard)
@@ -63,9 +63,7 @@ class FiToBookConvertor {
     }
 
     private fun findAndPrintDiscrepancy(trades: List<Activity>, dateFormat: DateTimeFormatter) {
-        val discrepancies = trades
-            .filter { it.type in setOf(ActivityType.BOUGHT, ActivityType.SOLD) }
-            .mapNotNull { trade -> createDiscrepancyReport(trade, dateFormat) }
+        val discrepancies = trades.mapNotNull { trade -> createDiscrepancyReport(trade, dateFormat) }
 
         if (discrepancies.isNotEmpty()) {
             println("Discrepancies:")
