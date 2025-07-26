@@ -6,7 +6,7 @@ import java.text.NumberFormat
 import java.util.*
 
 fun isValidAmount(amountStr: String): Boolean {
-    val regex = Regex("-?[$]?([0-9]{1,3}(,[0-9]{3})*|[0-9]+)(.{1}[0-9]+)?")
+    val regex = Regex("-?[$]?([0-9]{1,3}(,[0-9]{3})*|[0-9]+)(.[0-9]+)?")
     return regex.matches(amountStr)
 }
 
