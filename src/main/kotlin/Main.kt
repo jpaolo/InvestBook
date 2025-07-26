@@ -48,9 +48,9 @@ fun main(args: Array<String>) {
             activities = activities,
             mode = args[0],
             startingRow = args[1].toInt(),
-            summRow = summRow,
-            summAmountCol = summAmountCol,
-            summBalCol = summBalCol
+            summaryRow = summRow,
+            summaryAmountCol = summAmountCol,
+            summaryBalCol = summBalCol
         )
     } else {
         println("No text found on the clipboard or an error occurred.")

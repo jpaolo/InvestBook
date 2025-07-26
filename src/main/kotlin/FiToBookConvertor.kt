@@ -35,15 +35,15 @@ class FiToBookConvertor {
         activities: List<Activity>,
         mode: String,
         startingRow: Int,
-        summRow: Int? = null,
-        summAmountCol: String? = null,
-        summBalCol: String? = null
+        summaryRow: Int? = null,
+        summaryAmountCol: String? = null,
+        summaryBalCol: String? = null
     ) {
         val trades = activities.filter { it.type in TRADE_TYPES }
         val toClipboard = buildString { // Inline string building: Used buildString for better memory allocation
             when (mode) {
                 "0" -> processForExeTab(trades, startingRow)
-                "1" -> processForSummary(activities, startingRow, trades.size, summRow, summAmountCol, summBalCol)
+                "1" -> processForSummary(activities, startingRow, trades.size, summaryRow, summaryAmountCol, summaryBalCol)
             }
             // Remove trailing newline
             if (isNotEmpty() && last() == NEWLINE) deleteCharAt(length - 1)
@@ -72,12 +72,12 @@ class FiToBookConvertor {
         activities: List<Activity>,
         startingRow: Int,
         tradesSize: Int,
-        summRow: Int?,
-        summAmountCol: String?,
-        summBalCol: String?
+        summaryRow: Int?,
+        summaryAmountCol: String?,
+        summaryBalCol: String?
     ) {
         var row = startingRow + tradesSize - 1
-        var currentSummRow = summRow
+        var currentSummaryRow = summaryRow
 
         activities.asReversed().forEach { activity ->
             when (activity.type) {
@@ -85,8 +85,8 @@ class FiToBookConvertor {
                 else -> append(toInvestBookSummaryNonTradeActivity(activity))
             }
 
-            if (summRow != null && summAmountCol != null && summBalCol != null) {
-                append(TAB).append("=$summBalCol$currentSummRow+$summAmountCol${++currentSummRow}")
+            if (summaryRow != null && summaryAmountCol != null && summaryBalCol != null) {
+                append(TAB).append("=$summaryBalCol$currentSummaryRow+$summaryAmountCol${++currentSummaryRow}")
             }
             append(NEWLINE)
         }
