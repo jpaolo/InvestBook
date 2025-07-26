@@ -25,6 +25,12 @@ class FiToBookConvertor {
 
     private val dateFormatter = DateTimeFormatter.ofPattern("MM/dd/yyyy")
 
+    /**
+     * Processes activities and converts them based on the specified mode
+     * @param activities List of activities to process
+     * @param mode Processing mode (0 or 1)
+     * @param startingRow Starting row number for processing
+     */
     fun processActivities(
         activities: List<Activity>,
         mode: String,
@@ -49,13 +55,19 @@ class FiToBookConvertor {
         printDiscrepancies(trades)
     }
 
+    /**
+     * Mode 0: from Ally Activities page to InvestBook current year tab
+     */
     private fun StringBuilder.processForExeTab(trades: List<Activity>, startingRow: Int) {
         trades.forEachIndexed { index, trade ->
-            append(formatExecutionRow(trade, startingRow + index))
+            append(toInvestBookExecutionFromActivity(trade, startingRow + index))
             append(NEWLINE)
         }
     }
 
+    /**
+     * Mode 1: from InvestBook current year tab to InvestBook summary activities
+     */
     private fun StringBuilder.processForSummary(
         activities: List<Activity>,
         startingRow: Int,
@@ -69,8 +81,8 @@ class FiToBookConvertor {
 
         activities.asReversed().forEach { activity ->
             when (activity.type) {
-                in TRADE_TYPES -> append(formatSummaryTrade(row--, LocalDate.now().year))
-                else -> append(formatSummaryNonTrade(activity))
+                in TRADE_TYPES -> append(toInvestBookSummaryTrade(row--, LocalDate.now().year))
+                else -> append(toInvestBookSummaryNonTradeActivity(activity))
             }
 
             if (summRow != null && summAmountCol != null && summBalCol != null) {
@@ -80,7 +92,10 @@ class FiToBookConvertor {
         }
     }
 
-    private fun formatExecutionRow(activity: Activity, row: Int): String {
+    /**
+     * Converts Ally activity to InvestBook execution tab
+     */
+    private fun toInvestBookExecutionFromActivity(activity: Activity, row: Int): String {
         val correctedPrice = getCorrectedPrice(activity)
         val amountFormula = when (activity.type) {
             ActivityType.BOUGHT -> "=ROUND(-$SHARE_COL$row*$PRICE_COL$row-$FEE_COL$row,2)"
@@ -98,13 +113,16 @@ class FiToBookConvertor {
         }
     }
 
-    private fun formatSummaryTrade(row: Int, year: Int) = buildString {
+    /**
+     * Convert to InvestBook summary for trades
+     */
+    private fun toInvestBookSummaryTrade(row: Int, year: Int) = buildString {
         append("='executions $year'!$DATE_COL$row").append(TAB)
         append("=CONCATENATE(SUBSTITUTE('executions $year'!$OP_COL$row,\":\",CONCATENATE(\" \",'executions $year'!$SHARE_COL$row),1),\" @ \",TEXT('executions $year'!$PRICE_COL$row,\"$0.00\"))").append(TAB)
         append("='executions $year'!$AMOUNT_COL$row")
     }
 
-    private fun formatSummaryNonTrade(activity: Activity) = buildString {
+    private fun toInvestBookSummaryNonTradeActivity(activity: Activity) = buildString {
         append(activity.date.format(dateFormatter)).append(TAB)
         append("${activity.type.sourceName}: ${activity.description}").append(TAB)
         append(activity.amount.formattedAmount)
