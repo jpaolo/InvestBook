@@ -11,12 +11,19 @@ import java.time.format.DateTimeFormatter
 
 class FiToBookConvertor {
 
-    private val dateCol = "A"
-    private val shareCol = "B"
-    private val opCol = "C"
-    private val priceCol = "D"
-    private val feeCol = "E"
-    private val amountCol = "F"
+    private companion object {
+        const val DATE_COL = "A"
+        const val SHARE_COL = "B"
+        const val OP_COL = "C"
+        const val PRICE_COL = "D"
+        const val FEE_COL = "E"
+        const val AMOUNT_COL = "F"
+        const val NEWLINE = '\n'
+        const val TAB = '\t'
+        val TRADE_TYPES = setOf(ActivityType.BOUGHT, ActivityType.SOLD)
+    }
+
+    private val dateFormatter = DateTimeFormatter.ofPattern("MM/dd/yyyy")
 
     /**
      * Processes activities and converts them based on the specified mode
@@ -28,59 +35,109 @@ class FiToBookConvertor {
         activities: List<Activity>,
         mode: String,
         startingRow: Int,
-        summRow: Int?,
-        summAmountCol: String?,
-        summBalCol: String?
+        summRow: Int? = null,
+        summAmountCol: String? = null,
+        summBalCol: String? = null
     ) {
-        val dateFormatter = DateTimeFormatter.ofPattern("MM/dd/yyyy")
-        val toClipboard = StringBuilder()
-        val trades = activities.filter { it.type in setOf(ActivityType.BOUGHT, ActivityType.SOLD) }
-
-        when (mode) {
-            "0" -> processForExeTab(trades, dateFormatter, startingRow, toClipboard)
-            "1" -> processForSummary(
-                activities = activities,
-                dateFormat = dateFormatter,
-                startingRow = startingRow,
-                tradesSize = trades.size,
-                toClipboard = toClipboard,
-                summTabStartingRow = summRow,
-                summTabAmountCol = summAmountCol,
-                summTabBalCol = summBalCol
-            )
-        }
-
-        // Remove the last newline character
-        if (toClipboard.isNotEmpty()) {
-            toClipboard.deleteCharAt(toClipboard.length - 1)
+        val trades = activities.filter { it.type in TRADE_TYPES }
+        val toClipboard = buildString { // Inline string building: Used buildString for better memory allocation
+            when (mode) {
+                "0" -> processForExeTab(trades, startingRow)
+                "1" -> processForSummary(activities, startingRow, trades.size, summRow, summAmountCol, summBalCol)
+            }
+            // Remove trailing newline
+            if (isNotEmpty() && last() == NEWLINE) deleteCharAt(length - 1)
         }
 
         println("New clipboard:")
         println(toClipboard)
-        writeToClipboard(toClipboard.toString())
-
-        findAndPrintDiscrepancy(trades, dateFormatter)
+        writeToClipboard(toClipboard)
+        printDiscrepancies(trades)
     }
 
-    private fun findAndPrintDiscrepancy(trades: List<Activity>, dateFormat: DateTimeFormatter) {
-        val discrepancies = trades.mapNotNull { trade -> createDiscrepancyReport(trade, dateFormat) }
-
-        if (discrepancies.isNotEmpty()) {
-            println("Discrepancies:")
-            discrepancies.forEach(::println)
+    /**
+     * Mode 0: from Ally Activities page to InvestBook current year tab
+     */
+    private fun StringBuilder.processForExeTab(trades: List<Activity>, startingRow: Int) {
+        trades.forEachIndexed { index, trade ->
+            append(toInvestBookExecutionFromActivity(trade, startingRow + index))
+            append(NEWLINE)
         }
     }
 
-    private fun createDiscrepancyReport(trade: Activity, dateFormat: DateTimeFormatter): String? {
-        val calculatedAmount = calculateExpectedAmount(trade)
+    /**
+     * Mode 1: from InvestBook current year tab to InvestBook summary activities
+     */
+    private fun StringBuilder.processForSummary(
+        activities: List<Activity>,
+        startingRow: Int,
+        tradesSize: Int,
+        summRow: Int?,
+        summAmountCol: String?,
+        summBalCol: String?
+    ) {
+        var row = startingRow + tradesSize - 1
+        var currentSummRow = summRow
 
+        activities.asReversed().forEach { activity ->
+            when (activity.type) {
+                in TRADE_TYPES -> append(toInvestBookSummaryTrade(row--, LocalDate.now().year))
+                else -> append(toInvestBookSummaryNonTradeActivity(activity))
+            }
+
+            if (summRow != null && summAmountCol != null && summBalCol != null) {
+                append(TAB).append("=$summBalCol$currentSummRow+$summAmountCol${++currentSummRow}")
+            }
+            append(NEWLINE)
+        }
+    }
+
+    /**
+     * Converts Ally activity to InvestBook execution tab
+     */
+    private fun toInvestBookExecutionFromActivity(activity: Activity, row: Int): String {
+        val amountFormula = when (activity.type) {
+            ActivityType.BOUGHT -> "=ROUND(-$SHARE_COL$row*$PRICE_COL$row-$FEE_COL$row,2)"
+            ActivityType.SOLD -> "=ROUND($SHARE_COL$row*$PRICE_COL$row-$FEE_COL$row,2)"
+            else -> throw IllegalStateException("Unsupported trade type: ${activity.type}")
+        }
+
+        val priceToUse = getDiscrepantCalculatedAmount(activity)?.let {
+            calculateSuggestedPrice(activity)
+        } ?: activity.price
+
+        return buildString {
+            append(activity.date.format(dateFormatter)).append(TAB)
+            append(activity.shares).append(TAB)
+            append("${activity.type.sourceName}: ${activity.symbol}").append(TAB)
+            append(priceToUse).append(TAB)
+            append(activity.fee!!.formattedAmount).append(TAB)
+            append(amountFormula)
+        }
+    }
+
+    /**
+     * Convert to InvestBook summary for trades
+     */
+    private fun toInvestBookSummaryTrade(row: Int, year: Int) = buildString {
+        append("='executions $year'!$DATE_COL$row").append(TAB)
+        append("=CONCATENATE(SUBSTITUTE('executions $year'!$OP_COL$row,\":\",CONCATENATE(\" \",'executions $year'!$SHARE_COL$row),1),\" @ \",TEXT('executions $year'!$PRICE_COL$row,\"$0.00\"))").append(TAB)
+        append("='executions $year'!$AMOUNT_COL$row")
+    }
+
+    private fun toInvestBookSummaryNonTradeActivity(activity: Activity) = buildString {
+        append(activity.date.format(dateFormatter)).append(TAB)
+        append("${activity.type.sourceName}: ${activity.description}").append(TAB)
+        append(activity.amount.formattedAmount)
+    }
+
+    private fun getDiscrepantCalculatedAmount(trade: Activity): BigDecimal? {
+        val calculatedAmount = calculateExpectedAmount(trade)
         return if (trade.amount.value.compareTo(calculatedAmount) != 0) {
-            val suggestedPrice = calculateSuggestedPrice(trade)
-            "${trade.date.format(dateFormat)}\t" +
-                    "${trade.type.sourceName}: ${trade.shares} ${trade.symbol}\t" +
-                    "actual amount = [${trade.amount.formattedAmount}]; calculated amount = [${toAmount(calculatedAmount)}]; " +
-                    "suggested share price = [$suggestedPrice]"
-        } else null
+            calculatedAmount
+        } else {
+            null
+        }
     }
 
     private fun calculateExpectedAmount(trade: Activity): BigDecimal {
@@ -98,99 +155,24 @@ class FiToBookConvertor {
             ActivityType.SOLD -> trade.amount.value + trade.fee!!.value
             else -> throw IllegalArgumentException("Unsupported trade type: ${trade.type}")
         }
-
-        return (adjustedAmount.setScale(6, RoundingMode.HALF_UP) / trade.shares!!.toBigDecimal())
+        return adjustedAmount.setScale(6, RoundingMode.HALF_UP) / trade.shares!!.toBigDecimal()
     }
 
-    /**
-     * Converts Ally activity to InvestBook execution tab
-     */
-    private fun toInvestBookExecutionFromActivity(activity: Activity, dateFormat: DateTimeFormatter, curRow: Int): String {
-
-        val rowText = StringBuilder()
-        rowText.append(activity.date.format(dateFormat)).append('\t')
-        rowText.append(activity.shares).append('\t')
-        rowText.append("${activity.type.sourceName}: ${activity.symbol}").append('\t')
-        rowText.append(activity.price!!.formattedAmount).append('\t')
-        rowText.append(activity.fee!!.formattedAmount).append('\t')
-
-        when (activity.type) {
-            ActivityType.BOUGHT -> {
-                rowText.append("=ROUND(-$shareCol$curRow*$priceCol$curRow-$feeCol$curRow,2)")
-            }
-            ActivityType.SOLD -> {
-                rowText.append("=ROUND($shareCol$curRow*$priceCol$curRow-$feeCol$curRow,2)")
-            }
-            else -> {
-                throw IllegalStateException("${activity.type}")
-            }
+    private fun printDiscrepancies(trades: List<Activity>) {
+        val discrepancies = trades.mapNotNull { trade ->
+            val calculatedAmount = getDiscrepantCalculatedAmount(trade)
+            if (calculatedAmount != null) {
+                val suggestedPrice = calculateSuggestedPrice(trade)
+                "${trade.date.format(dateFormatter)}$TAB" +
+                        "${trade.type.sourceName}: ${trade.shares} ${trade.symbol}$TAB" +
+                        "actual amount = [${trade.amount.formattedAmount}]; calculated amount = [${toAmount(calculatedAmount)}]; " +
+                        "suggested share price = [$suggestedPrice]"
+            } else null
         }
 
-        return rowText.toString()
-    }
-
-    /**
-     * Convert to InvestBook summary for trades
-     */
-    private fun toInvestBookSummaryTrade(curRow: Int, curYear: Int): String {
-
-        val rowText = StringBuilder()
-        rowText.append("='executions $curYear'!$dateCol$curRow").append('\t')
-        rowText.append("=CONCATENATE(SUBSTITUTE('executions $curYear'!$opCol$curRow,\":\",CONCATENATE(\" \",'executions $curYear'!$shareCol$curRow),1),\" @ \",TEXT('executions $curYear'!$priceCol$curRow,\"$0.00\"))").append('\t')
-        rowText.append("='executions $curYear'!$amountCol$curRow")
-
-        return rowText.toString()
-    }
-
-    private fun toInvestBookSummaryNonTradeActivity(activity: Activity, dateFormat: DateTimeFormatter): String {
-        val rowText = StringBuilder()
-        rowText.append(activity.date.format(dateFormat)).append('\t')
-        rowText.append("${activity.type.sourceName}: ${activity.description}").append('\t')
-        rowText.append(activity.amount.formattedAmount)
-
-        return rowText.toString()
-    }
-
-    /**
-     * Mode 0: from Ally Activities page to InvestBook current year tab
-     */
-    private fun processForExeTab(trades: List<Activity>, dateFormat: DateTimeFormatter, startingRow: Int, toClipboard: StringBuilder) {
-        var row = startingRow
-        trades.forEach {
-            toClipboard.append(toInvestBookExecutionFromActivity(it, dateFormat,row++))
-            toClipboard.append(10.toChar()) // ascii-10 = NL
+        if (discrepancies.isNotEmpty()) {
+            println("Discrepancies:")
+            discrepancies.forEach(::println)
         }
     }
-
-    /**
-     * Mode 1: from InvestBook current year tab to InvestBook summary activities
-     */
-    private fun processForSummary(
-        activities: List<Activity>,
-        dateFormat: DateTimeFormatter,
-        startingRow: Int,
-        tradesSize: Int,
-        toClipboard: StringBuilder,
-        summTabStartingRow: Int?,
-        summTabAmountCol: String?,
-        summTabBalCol: String?
-    ) {
-        var row = startingRow + tradesSize - 1
-        var summRow = summTabStartingRow
-        activities.reversed().forEach {
-            when (it.type) {
-                ActivityType.BOUGHT, ActivityType.SOLD -> {
-                    toClipboard.append(toInvestBookSummaryTrade(row--, LocalDate.now().year))
-                }
-                else -> {
-                    toClipboard.append(toInvestBookSummaryNonTradeActivity(it, dateFormat))
-                }
-            }
-            if (summTabStartingRow != null && summTabAmountCol != null && summTabBalCol != null) {
-                toClipboard.append('\t').append("=$summTabBalCol$summRow+$summTabAmountCol${++summRow}")
-            }
-            toClipboard.append(10.toChar())
-        }
-    }
-
 }
