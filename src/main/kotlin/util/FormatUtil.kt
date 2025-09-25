@@ -13,7 +13,6 @@ fun isValidAmount(amountStr: String): Boolean {
 fun toAmount(amountStr: String): Amount {
     if (isValidAmount(amountStr)) {
         val value: BigDecimal = amountStr
-            .replace("-", "")
             .replace("$", "")
             .replace(",", "").toBigDecimal()
         val formattedAmount = toAmount(value)
